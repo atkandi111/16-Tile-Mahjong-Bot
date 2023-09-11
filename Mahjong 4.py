@@ -10,9 +10,9 @@ print("\033c", end = "")
 
 class Player:
     id = 0
-    def __init__(self, hand):
+    def __init__(self):
         Player.id = Player.id + 1
-        self.hand = hand
+        self.hand = []
         self.open = []
         self.points = 0
 
@@ -76,8 +76,10 @@ class Game:
         self.players = []
         self.current_player = None
         self.mano = 0
-        for _ in range(4):
-            self.players.append(Player(self.draw_tile(16)))
+        for i in range(4):
+            self.current_player = i
+            self.players.append(Player())
+            self.hand = [self.draw_tile() for _ in range(16)]
 
     @property
     def hand(self):
@@ -94,18 +96,32 @@ class Game:
     @open.setter
     def open(self, value):
         self.players[self.current_player].open = value
-
-    def draw_tile(self, number = 1):
+    
+    def draw_tile(self):
         if len(self.tile_wall) < 14:
             self.game_status = "Draw"
-        tile_drawn = self.tile_wall[:number]
-        self.tile_wall = self.tile_wall[number:]
-        return tile_drawn
+            return
+        return self.open_flwr(self.tile_wall.pop(0))
 
     def draw_flwr(self):
         if len(self.tile_wall) < 14:
             self.game_status = "Draw"
-        return self.tile_wall.pop()
+            return
+        return self.open_flwr(self.tile_wall.pop())
+    
+    def open_flwr(self, card):
+        if card.__repr__() in ["fR", "fB"]:
+            self.open.append(card)
+            card = self.draw_flwr()
+
+        if self.hand.count(card) + 1 == 4:
+            self.open.append(card)
+            for _ in range(3):
+                self.open.append(card)
+                self.hand.remove(card)
+            card = self.draw_flwr()
+
+        return card
 
     def open_tile(self, tile):
         pass
@@ -163,26 +179,8 @@ def main():
     for i in range(4):
         this.current_player = i
         print("Player {}".format(i + 1))
-        this.hand.append(open_flwr(*this.draw_tile()))
 
-        def open_flwr(card, idx = -1):
-            while card.__repr__() in ["fR", "fB"]:
-                this.open.append(card)
-                card = this.draw_flwr()
-
-            if this.hand.count(card) == 4:
-                for _ in range(4):
-                    this.open.append(card)
-                    this.hand.remove(card)
-                card = open_flwr(this.draw_flwr())
-            
-            card
-
-        freq = Counter(this.hand)
-        kang = [x for x in freq if freq[x] > 3]
-        for card in kang:
-            this.hand.append(open_flwr(card))
-
+        this.hand.append(this.draw_tile())
         if this.game_status != "Ongoing":
             return
         
