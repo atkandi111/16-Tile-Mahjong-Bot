@@ -98,18 +98,59 @@ class Game:
         self.players[self.current_player].open = value
     
     def draw_tile(self):
+        card = self.tile_wall.pop(0)
+
+        while len(self.tile_wall) > 13:
+            if card.__repr__() in ["fR", "fB"]:
+                self.open.append(card)
+                card = self.tile_wall.pop()
+                continue
+            
+            if self.hand.count(card) + 1 == 4:
+                self.open.append(card)
+                for _ in range(3):
+                    self.open.append(card)
+                    self.hand.remove(card)
+                card = self.tile_wall.pop()
+                continue
+            
+            return card
+        self.game_status = "Draw"
+
+    """
+    def draw_tile2(self):
         if len(self.tile_wall) < 14:
             self.game_status = "Draw"
             return
         return self.open_flwr(self.tile_wall.pop(0))
 
+    def open_flwr(self):
+        if len(self.tile_wall) < 14:
+            self.game_status = "Draw"
+            return
+        
+        card = self.tile_wall.pop()
+        if card.__repr__() in ["fR", "fB"]:
+            self.open.append(card)
+            card = self.open_flwr()
+
+        if self.hand.count(card) + 1 == 4:
+            self.open.append(card)
+            for _ in range(3):
+                self.open.append(card)
+                self.hand.remove(card)
+            card = self.open_flwr()
+
+        return card
+    
+    
     def draw_flwr(self):
         if len(self.tile_wall) < 14:
             self.game_status = "Draw"
             return
         return self.open_flwr(self.tile_wall.pop())
-    
-    def open_flwr(self, card):
+
+    def open_flwr2(self, card):
         if card.__repr__() in ["fR", "fB"]:
             self.open.append(card)
             card = self.draw_flwr()
@@ -122,37 +163,36 @@ class Game:
             card = self.draw_flwr()
 
         return card
-
-    def open_tile(self, tile):
-        pass
+    """
 
     def toss_tile(self, tile):
         pass
 
-def Group_Sets(hand):
-    freq = Counter(hand)
+def Group_Sets():
+    freq = Counter(this.hand)
     pair = [[x] * 2 for x in freq if freq[x] > 1]
     pong = [[x] * 3 for x in freq if freq[x] > 2]
     chow = []
-    for item in freq:
-        suit, unit = item[0], item[1]
-        if isinstance(unit, str):
+    for card in freq:
+        if isinstance(card.unit, str):
             continue
 
-        seqn = [0, 1, 2]
-        seqn = [x + int(unit) for x in seqn]
-        seqn = [suit + str(x) for x in seqn]
-
+        seqn = [
+            Tile(card.suit, card.unit),
+            Tile(card.suit, card.unit + 1),
+            Tile(card.suit, card.unit + 2)
+        ]
+        
         chow += [seqn] * min([freq[x] for x in seqn])
     return pair, pong, chow
 
-def Check_Win(hand):
-    pair, pong, chow = Group_Sets(hand)
+def Check_Win():
+    pair, pong, chow = Group_Sets()
     winning_case = False
     class_of_win = "Standard"
 
     if len(pair) < 7:
-        case_pool = combinations(pong + chow, len(hand) // 3)
+        case_pool = combinations(pong + chow, len(this.hand) // 3)
         eye_pool = pair
     else: #7 Pairs
         case_pool = combinations(pair, 7)
@@ -161,7 +201,7 @@ def Check_Win(hand):
     for item in case_pool:
         case = [x for meld in item for x in meld]
         for eye in eye_pool:
-            if Counter(case + eye) != Counter(hand):
+            if Counter(case + eye) != Counter(this.hand):
                 continue
             
             winning_case = True
@@ -172,7 +212,28 @@ def Check_Win(hand):
     
     return winning_case, class_of_win
 
-def main():
+def Display():
+    print("\033c", end = "")
+    print("Discard:", *this.discard, sep = " ")
+    print("- - - - - - - - - - - - - -")
+    for i in range(4):
+        label = ""
+        if this.current_player == i: 
+            label = "- current"
+        print("Player {}".format(i + 1), label)
+        
+        print("Open:", *this.players[i].open, sep = " ")
+
+        label = ""
+        if this.current_player >= i:
+            label = this.players[i].hand[-1]
+        print("Grab:", label)
+        
+        print(*TileSet.sorter(this.players[i].hand), sep = " ")
+        print("- - - - - - - - - - - - - -")
+
+
+def main2():
     #print("\033c", end = "")
     print("Discard:", *this.discard, sep = " ")
     print("- - - - - - - - - - - - - -")
@@ -189,21 +250,40 @@ def main():
 
         print(*TileSet.sorter(this.hand), sep = " ")
         if Check_Win(this.hand)[0]:
-            this.game_status = f"Player {i} Won!"
+            this.game_status = "Player {} Won!".format(i + 1)
             return
 
         toss = input("Throw: ")
         for idx, card in enumerate(this.hand):
             if card.__repr__() != toss:
                 continue
-            this.discard.append(card)
-            del this.hand[idx]
+            this.discard.append(this.hand.pop(idx))
             break
         else:
             raise ValueError("Tile not in hand")
 
         print("- - - - - - - - - - - - - -")
         
+def main():
+    #print("\033c", end = "")
+    for i in range(4):
+        this.current_player = i
+        this.hand.append(this.draw_tile())
+
+        Display()
+        
+        if Check_Win()[0]:
+            this.game_status = "Player {} Won!".format(i + 1)
+            return
+
+        toss = input("Throw P{}: ".format(i + 1))
+        for idx, card in enumerate(this.hand):
+            if card.__repr__() == toss:
+                this.discard.append(this.hand.pop(idx))
+                break
+        else:
+            raise ValueError("Tile not in hand")
+
 if __name__ == "__main__":
     this = Game()
     while this.game_status == "Ongoing":

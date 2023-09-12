@@ -117,8 +117,12 @@ def Suggest_Discard(hand, opened, discard):
     # so that counter(reference) wouldnt be called anymore
 
     weights = [Decompose_Meld, Tiles_Needed, Near_Cards]
+
+    global timer
     for func in weights:
+        start = time()
         discard_candidates = func(discard_candidates, freq)
+        timer[weights.index(func)] += time() - start
         print(Sorter(discard_candidates))
     print("/////")
     return choice(discard_candidates)
@@ -219,12 +223,14 @@ reference = [
 
 start = time()
 draw = 0
+timer = [0, 0, 0]
 total_discard = []
 for _ in range(25):
     Solo_Game()
     print("\033c", end = "")
     print(total_discard)
-print("{} secs", time() - start)
+print(timer)
+print("{} secs".format(time() - start))
 print("Draws", draw)
 
 """
