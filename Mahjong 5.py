@@ -73,6 +73,7 @@ def Tiles_Needed(hand, freq):
             for pre_meld, card in completing_seqn.items():
                 if (Counter(pre_meld) - Counter(temp)):
                     continue
+                #if pre_meld in pair, pong, or find_waiting
                 for i in card:
                     if i not in tile_needed:
                         tile_needed += [i] * freq[i]
@@ -168,6 +169,8 @@ def Solo_Game():
     shuffle(tiles)
     #tiles = ['c1', 'b9', 'c8', 'b2', 'b5', 'tR', 'dN', 's8', 'dN', 'c2', 'dE', 's8', 'fR', 's3', 's1', 'b1', 'c8', 's7', 'dS', 'b8', 'b8', 'c8', 'dW', 'c7', 'c7', 'b7', 'b8', 's9', 'dW', 's2', 'c6', 'c6', 'tG', 's3', 'tR', 's2', 'dS', 's7', 'b6', 's8', 'c9', 'c4', 'b5', 'c7', 's4', 'b2', 'b2', 'b9', 'dW', 's1', 'dN', 'dW', 'b1', 'tG', 's2', 's5', 'c3', 'b6', 'c4', 'c1', 'dN', 's3', 's4', 's1', 'tW', 'c3', 'c8', 's5', 'c5', 'dS', 'b6', 'b5', 's6', 's1', 's7', 'b4', 'b3', 'c5', 'dE', 'b9', 's4', 's3', 'b4', 'b3', 's2', 'b7', 'b1', 'c9', 'dS', 'tG', 'tG', 's7', 'b3', 's6', 's9', 'b7', 'tR', 'tW', 'b5', 'c3', 'fB', 'fR', 'c1', 'c6', 'tW', 's4', 'b1', 'fR', 's8', 'c2', 'b6', 'c3', 'b4', 'dE', 'b7', 'c9', 'b8', 'c9', 'fB', 'c1', 's6', 'c5', 'fB', 'c7', 'b9', 'tR', 's5', 'c4', 's5', 'c2', 'c5', 'b3', 'tW', 'c6', 'b2', 's6', 's9', 's9', 'fB', 'c4', 'c2', 'b4', 'fR', 'dE']
     hand, tiles = tiles[:16], tiles[16:]
+    hand = ['c6', 'dE', 'c2', 'b5', 'c2', 'b3', 's1', 's7', 'dW', 'b2', 'b4', 'dE', 's8', 'dW', 'b5', 'b7']
+    tiles = ['s7', 'fB', 'b8', 's5', 's4', 'c1', 'c3', 'b9', 'c9', 'c2', 'fR', 'c8', 'c3', 'c1', 'c7', 'b4', 's2', 's1', 's3', 's3', 's4', 'b8', 'b4', 'c7', 'tG', 's8', 'dN', 'c6', 'c2', 's4', 'b8', 'dS', 's5', 'b9', 's9', 'b4', 'b6', 'dS', 'c4', 'b1', 'dS', 'dE', 'b5', 'b7', 'c8', 'tR', 'b3', 'b9', 'c1', 'b8', 'tR', 's2', 's6', 'c5', 's3', 's5', 's6', 'fR', 'dN', 'c8', 'tW', 'tW', 'c4', 'b1', 'c3', 's9', 'fB', 'tR', 's1', 's6', 's1', 'b2', 'c9', 's6', 'c8', 'b3', 'c3', 's9', 's4', 'b7', 'dE', 'b6', 'b6', 'c6', 's8', 'dS', 'b9', 'b7', 'tW', 'fR', 'dN', 'tW', 'c4', 'c5', 'fB', 'tG', 'c6', 'c7', 'c9', 'c4', 's3', 'b2', 's7', 'b1', 'fB', 'b2', 'c7', 'b1', 'c5', 'tR', 's2', 'tG', 'c1', 's7', 'dW', 'b5', 's8', 's5', 's2', 'c5', 'b3', 'fR', 'dN', 'c9', 's9', 'dW', 'tG', 'b6']
     opened, discard = [], []
 
     while len(tiles) > 13:
@@ -195,13 +198,13 @@ def Solo_Game():
 
         print("Suggested:", Suggest_Discard(hand, opened, discard))
 
-        #toss = hand.index(input("Throw: "))
-        #discard.append(hand.pop(toss))
+        toss = hand.index(input("Throw: "))
+        discard.append(hand.pop(toss))
         #add try-except for incorrect input
 
-        toss = Suggest_Discard(hand, opened, discard)
-        discard.append(toss)
-        hand.remove(toss)
+        #toss = Suggest_Discard(hand, opened, discard)
+        #discard.append(toss)
+        #hand.remove(toss)
     else:
         print("Draw!")
         #print(t_tiles)
@@ -216,7 +219,7 @@ reference = [
 
 start = time()
 total_discard = []
-for _ in range(10):
+for _ in range(1):
     Solo_Game()
     print("\033c", end = "")
     print(total_discard)

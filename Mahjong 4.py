@@ -9,9 +9,7 @@ from time import time
 print("\033c", end = "")
 
 class Player:
-    id = 0
     def __init__(self):
-        Player.id = Player.id + 1
         self.hand = []
         self.open = []
         self.points = 0
@@ -24,13 +22,8 @@ class Tile:
         self.suit = suit
         self.unit = unit
 
-    def __getitem__(self, index):
-        match index:
-            case 0: return self.suit
-            case 1: return self.unit
-
     def __lt__(self, other):
-        return self.__repr__() < other.__repr__()    
+        return self.__repr__() < other.__repr__()
     
     def __eq__(self, other):
         return self.__repr__() == other.__repr__()
@@ -61,24 +54,38 @@ class TileSet:
 
     @staticmethod
     def sorter(hand):
-        suit = [x for x in hand if isinstance(x[1], int)]
-        null = [x for x in hand if isinstance(x[1], str)]
+        suit = [x for x in hand if isinstance(x.unit, int)]
+        null = [x for x in hand if isinstance(x.unit, str)]
 
         return sorted(suit) + sorted(null)
 
 class Game:
-    def __init__(self):
+    def init_orig(self):
         self.game_status = "Ongoing"
         self.tile_wall = TileSet().reference
         shuffle(self.tile_wall)
         self.discard = []
 
         self.players = []
-        self.current_player = None
         self.mano = 0
         for i in range(4):
             self.current_player = i
             self.players.append(Player())
+            self.hand = [self.draw_tile() for _ in range(16)]
+    
+    def __init__(self):
+        self.players = [Player() for _ in range(4)]
+        self.mano = 0 #itertools cycle for circular list
+        self.initialize_game()
+
+    def initialize_game(self):
+        self.game_status = "Ongoing"
+        self.tile_wall = TileSet().reference
+        shuffle(self.tile_wall)
+
+        self.discard = []
+        for i in range(4):
+            self.current_player = i
             self.hand = [self.draw_tile() for _ in range(16)]
 
     @property
@@ -212,65 +219,34 @@ def Check_Win():
     
     return winning_case, class_of_win
 
-def Display():
+def Display(current_idx):
     print("\033c", end = "")
     print("Discard:", *this.discard, sep = " ")
     print("- - - - - - - - - - - - - -")
     for i in range(4):
+        this.current_player = i
         label = ""
-        if this.current_player == i: 
+        if current_idx == i: 
             label = "- current"
         print("Player {}".format(i + 1), label)
         
-        print("Open:", *this.players[i].open, sep = " ")
+        print("Open:", *this.open, sep = " ")
 
         label = ""
-        if this.current_player >= i:
-            label = this.players[i].hand[-1]
+        if current_idx >= i:
+            label = this.hand[-1]
         print("Grab:", label)
         
-        print(*TileSet.sorter(this.players[i].hand), sep = " ")
-        print("- - - - - - - - - - - - - -")
-
-
-def main2():
-    #print("\033c", end = "")
-    print("Discard:", *this.discard, sep = " ")
-    print("- - - - - - - - - - - - - -")
-    for i in range(4):
-        this.current_player = i
-        print("Player {}".format(i + 1))
-
-        this.hand.append(this.draw_tile())
-        if this.game_status != "Ongoing":
-            return
-        
-        print("Open:", *this.open, sep = " ")
-        print("Grab:", this.hand[-1])
-
         print(*TileSet.sorter(this.hand), sep = " ")
-        if Check_Win(this.hand)[0]:
-            this.game_status = "Player {} Won!".format(i + 1)
-            return
-
-        toss = input("Throw: ")
-        for idx, card in enumerate(this.hand):
-            if card.__repr__() != toss:
-                continue
-            this.discard.append(this.hand.pop(idx))
-            break
-        else:
-            raise ValueError("Tile not in hand")
-
         print("- - - - - - - - - - - - - -")
-        
+    this.current_player = current_idx
+
 def main():
-    #print("\033c", end = "")
     for i in range(4):
         this.current_player = i
         this.hand.append(this.draw_tile())
 
-        Display()
+        Display(i)
         
         if Check_Win()[0]:
             this.game_status = "Player {} Won!".format(i + 1)
@@ -286,6 +262,7 @@ def main():
 
 if __name__ == "__main__":
     this = Game()
+    # while true, this.initialize_game()
     while this.game_status == "Ongoing":
         main()
     print(this.game_status)

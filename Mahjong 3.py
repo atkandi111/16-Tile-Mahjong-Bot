@@ -10,7 +10,6 @@ print("\033c", end = "")
 
 def Group_Sets(hand):
     freq = Counter(hand)
-    pair, pong, chow = [], [], []
     pair = [[x] * 2 for x in freq if freq[x] > 1]
     pong = [[x] * 3 for x in freq if freq[x] > 2]
     chow = []
@@ -29,7 +28,7 @@ def Group_Sets(hand):
 def Near_Cards(hand, freq):
     near_count = {}
     for card in set(hand):
-        suit, unit = list(card)
+        suit, unit = card[0], card[1]
         if unit.isalpha():
             seqn = [card]
         else:
@@ -43,19 +42,21 @@ def Near_Cards(hand, freq):
     return [x for x in hand if near_count[x] == min_count]
 
 def Tiles_Needed(hand, freq):
-    need_count = {}
+    max_need = 0
+    need_list = {}
     for test_card in set(hand):
-        temp = hand.copy()
-        temp.remove(test_card)
+        test_hand = hand.copy()
+        test_hand.remove(test_card)
+        test_freq = Counter(test_hand)
 
-        tile_needed = []
-        for card in temp:
-            suit, unit = list(card)
+        tile_needed = {}
+        for card in test_hand:
+            suit, unit = card[0], card[1]
             if unit.isalpha():
                 seqn = [card]
 
                 completing_seqn = {
-                    (seqn[0], seqn[0]) : (seqn[0], )
+                    (seqn[0], seqn[0]) : (seqn[0])
                 }
             else:
                 seqn = [-2, -1, 0, 1, 2]
@@ -71,43 +72,97 @@ def Tiles_Needed(hand, freq):
                 }
 
             for pre_meld, card in completing_seqn.items():
-                if (Counter(pre_meld) - Counter(temp)):
+                if (Counter(pre_meld) - test_freq):
                     continue
                 for i in card:
-                    if i not in tile_needed:
-                        tile_needed += [i] * freq[i]
+                    tile_needed[i] = freq[i]
 
-        need_count[test_card] = len(tile_needed)
+        if max_need < sum(tile_needed.values()):
+            max_need = sum(tile_needed.values())
+            need_list.clear()
+        need_list[test_card] = tile_needed.keys()
     
-    max_count = max(need_count.values())
-    return [x for x in hand if need_count[x] == max_count]
+    return [x for x in hand if x in need_list]
+
+def Tiles_Needed2(hand, freq):
+    max_need = 0
+    need_list = {}
+    for test_card in set(hand):
+        test_hand = hand.copy()
+        test_hand.remove(test_card)
+        test_freq = Counter(test_hand)
+
+        tile_needed = {}
+        for card in test_hand:
+            suit, unit = card[0], card[1]
+            if unit.isalpha():
+                seqn = [card]
+
+                completing_seqn = {
+                    (seqn[0], seqn[0]) : (seqn[0])
+                }
+            else:
+                eqn = [-2, -1, 0, 1, 2]
+                seqn = [x + int(unit) for x in seqn]
+                seqn = [suit + str(x) for x in seqn]
+
+                completing_seqn = {
+                    (seqn[0], seqn[2]) : (seqn[1], ),
+                    (seqn[1], seqn[2]) : (seqn[0], seqn[3]),
+                    (seqn[2], seqn[2]) : (seqn[2], ),
+                    (seqn[2], seqn[3]) : (seqn[1], seqn[4]),
+                    (seqn[2], seqn[4]) : (seqn[3], )
+                }
+
+            for pre_meld, card in completing_seqn.items():
+                if (Counter(pre_meld) - test_freq):
+                    continue
+                for i in card:
+                    tile_needed[i] = freq[i]
+
+        if max_need < sum(tile_needed.values()):
+            max_need = sum(tile_needed.values())
+            need_list.clear()
+        need_list[test_card] = tile_needed.keys()
+    
+    return [x for x in hand if x in need_list]
 
 #introduce weights for pong vs chow
+#introduce weights for escalera
 
 def Decompose_Meld(hand, freq):
     #include eyes
     #then try to merge with check_win
     pair, pong, chow = Group_Sets(hand)
-    meld_count = {}
+    max_meld = 0
+    null_cards = []
+
     for test_card in set(hand):
-        temp = hand.copy()
-        temp.remove(test_card)
+        test_hand = hand.copy()
+        test_hand.remove(test_card)
+        test_freq = Counter(test_hand)
 
-        length = len(hand) // 3
-        while length >= 0:
-            #case_pool = [*combinations(pong + chow, length)]
-            for case in combinations(pong + chow, length):
-                #case = [x for meld in case for x in meld]
+        num_meld = len(hand) // 3
+        while num_meld >= max_meld:
+            for case in combinations(pong + chow, num_meld):
                 case = chain(*case)
-                if (Counter(case) - Counter(temp)):
+                if (Counter(case) - test_freq):
                     continue
-                meld_count[test_card] = length
-                length = 0
-                break
-            length = length - 1
 
-    max_count = max(meld_count.values())
-    return [x for x in hand if meld_count[x] == max_count]
+                if max_meld < num_meld:
+                    max_meld = num_meld
+                    null_cards.clear()
+                null_cards.append(test_card)
+                break
+            num_meld = num_meld - 1
+
+    return [x for x in hand if x in null_cards]
+
+#rename variables
+#merge dm with check_win
+# consider one eye(pair) for hand to win
+# if return is empty, it means win
+# if meld_count is empty, win
 
 def Suggest_Discard(hand, opened, discard):
     print("/////")
@@ -174,6 +229,7 @@ def Solo_Game():
 
     shuffle(tiles)
     hand, tiles = tiles[:16], tiles[16:]
+    thand, ttiles = hand.copy(), tiles.copy()
     opened, discard = [], []
 
     while len(tiles) > 13:
@@ -225,7 +281,7 @@ start = time()
 draw = 0
 timer = [0, 0, 0]
 total_discard = []
-for _ in range(25):
+for _ in range(250):
     Solo_Game()
     print("\033c", end = "")
     print(total_discard)
