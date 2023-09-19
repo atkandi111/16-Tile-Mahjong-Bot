@@ -5,6 +5,7 @@ from collections import Counter
 from itertools import combinations, chain
 from random import shuffle, choice
 from time import time
+import math
 
 print("\033c", end = "")
 
@@ -90,29 +91,31 @@ def Decompose_Meld(hand, freq):
     #include eyes
     #then try to merge with check_win
     pair, pong, chow = Group_Sets(hand)
-    max_meld, num_meld = 0, 0
-    null_cards = []
+    meldcount = {}
 
-    freq = Counter(hand)
-    for test_card in set(hand):
-        test_freq = freq.copy()
-        test_freq[test_card] -= 1
-        num_meld = len(hand) // 3
+    eye_pool = pair
 
-        while num_meld >= max_meld:
-            for case in combinations(pong + chow, num_meld):
+    for testcard in set(hand):
+        testhand = hand.copy()
+        testhand.remove(testcard)
+        testfreq = Counter(testhand)
+
+        numcount = len(hand) // 3
+        while not numcount < 0:
+            for case in combinations(pong + chow, numcount):
                 case = chain(*case)
-                if (Counter(case) - test_freq):
+                if (Counter(case) - testfreq):
                     continue
 
-                if max_meld < num_meld:
-                    max_meld = num_meld
-                    null_cards.clear()
-                null_cards.append(test_card)
+                if numcount == len(hand) // 3:
+                    for eye in eye_pool
+                meldcount[testcard] = numcount
+                numcount = 0
                 break
-            num_meld = num_meld - 1
+            numcount = numcount - 1
 
-    return [x for x in hand if x in null_cards]
+    maxcount = max(meldcount.values())
+    return [x for x in hand if meldcount[x] == maxcount]
 
 #rename variables
 #merge dm with check_win
@@ -211,15 +214,15 @@ def Solo_Game():
             print("You Won!")
             break
 
-        #print("Suggested:", Suggest_Discard(hand, opened, discard))
+        print("Suggested:", Suggest_Discard(hand, opened, discard))
 
-        #toss = hand.index(input("Throw: "))
-        #discard.append(hand.pop(toss))
+        toss = hand.index(input("Throw: "))
+        discard.append(hand.pop(toss))
         #add try-except for incorrect input
 
-        toss = Suggest_Discard(hand, opened, discard)
-        discard.append(toss)
-        hand.remove(toss)
+        #toss = Suggest_Discard(hand, opened, discard)
+        #discard.append(toss)
+        #hand.remove(toss)
     else:
         print("Draw!")
         global draw

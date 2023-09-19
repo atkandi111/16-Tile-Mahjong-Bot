@@ -4,7 +4,7 @@
 from collections import Counter
 from itertools import combinations, chain
 from random import shuffle, choice
-from time import time
+from time import time, sleep
 
 print("\033c", end = "")
 
@@ -12,6 +12,7 @@ class Player:
     def __init__(self):
         self.hand = []
         self.open = []
+        self.need = []
         self.points = 0
 
 class Tile:
@@ -20,15 +21,15 @@ class Tile:
         self.unit = unit
 
     def __lt__(self, other):
-        return self.__repr__() < other.__repr__()
+        return self.__str__() < other.__str__()
     
     def __eq__(self, other):
-        return self.__repr__() == other.__repr__()
+        return self.__str__() == other.__str__()
 
     def __hash__(self):
         return hash((self.suit, self.unit))
-
-    def __repr__(self):
+    
+    def __str__(self):
         return f"{self.suit}{self.unit}"
 
 class TileSet:
@@ -60,7 +61,7 @@ class Game:
     def __init__(self):
         self.players = [Player() for _ in range(4)]
         self.reference = TileSet().reference
-        self.current_player = 0
+        self.currentplayer = 0
         self.mano = 0
 
     def initialize_game(self):
@@ -70,33 +71,42 @@ class Game:
 
         self.discard = []
         for i in range(4):
-            self.current_player = i
+            self.currentplayer = i
             self.hand.clear()
             self.open.clear()
+            self.need.clear()
             for _ in range(16):
                 self.draw_tile()
 
     @property
     def hand(self):
-        return self.players[self.current_player].hand
+        return self.players[self.currentplayer].hand
     
     @property
     def open(self):
-        return self.players[self.current_player].open
+        return self.players[self.currentplayer].open
+    
+    @property
+    def need(self):
+        return self.players[self.currentplayer].need
     
     @hand.setter
     def hand(self, value):
-        self.players[self.current_player].hand = value
+        self.players[self.currentplayer].hand = value
 
     @open.setter
     def open(self, value):
-        self.players[self.current_player].open = value
+        self.players[self.currentplayer].open = value
+
+    @need.setter
+    def need(self, value):
+        self.players[self.currentplayer].need = value
     
     def draw_tile(self):
         card = self.tile_wall.pop(0)
 
         while len(self.tile_wall) > 14:
-            if card.__repr__() in ["fR", "fB"]:
+            if str(card) in ["fR", "fB"]:
                 self.open.append(card)
                 card = self.tile_wall.pop()
                 continue
@@ -127,7 +137,7 @@ class Game:
             return
         
         card = self.tile_wall.pop()
-        if card.__repr__() in ["fR", "fB"]:
+        if str(card) in ["fR", "fB"]:
             self.open.append(card)
             card = self.open_flwr()
 
@@ -148,7 +158,7 @@ class Game:
         return self.open_flwr(self.tile_wall.pop())
 
     def open_flwr2(self, card):
-        if card.__repr__() in ["fR", "fB"]:
+        if str(card) in ["fR", "fB"]:
             self.open.append(card)
             card = self.draw_flwr()
 
@@ -162,24 +172,71 @@ class Game:
         return card
     """
 
-    def toss_tile(self, tile):
-        pass
+    def display(self):
+        self._currentplayer = self.currentplayer
+        print("\033c", end = "")
+        print("Discard:", *self.discard, sep = " ")
+        print("- - - - - - - - - - - - - -")
+        for i in range(4):
+            self.currentplayer = i
+            label = ""
+            if self._currentplayer == self.currentplayer: 
+                label = "- current"
+            print("Player {}".format(i + 1), label)
+            
+            print("Open:", *self.open, sep = " ")
 
-class Engine():
+            label = ""
+            if self._currentplayer >= self.currentplayer:
+                label = self.hand[-1]
+            print("Grab:", label)
+            
+            print(*TileSet.sorter(self.hand), sep = " ")
+            print("- - - - - - - - - - - - - -")
+        self.currentplayer = self._currentplayer
+
+        """print("\033c", end = "")
+        print("Discard:", *self.discard, sep = " ")
+        print("- - - - - - - - - - - - - -")
+        for i in range(4):
+            label = ""
+            if self.currentplayer == i: 
+                label = "- current"
+            print("Player {}".format(i + 1), label)
+            
+            print("Open:", *self.players[i].open, sep = " ")
+
+            label = ""
+            if self.currentplayer >= i:
+                label = self.players[i].hand[-1]
+            print("Grab:", label)
+            
+            print(*TileSet.sorter(self.players[i].hand), sep = " ")
+            print("- - - - - - - - - - - - - -")
+        """
+
+class Engine:
+    tilesneeded = {}
+    #meldcount
+
     @classmethod
     def compute_discard(cls):
         """DOCSTRING
-        freq represents the Player's knowledge base.
-        Player don't know tiles in tile_wall and opponents' hands.
+        freq represents Player's knowledge base.
+        Player doesn't know tiles in tile_wall and opponents' hands.
         Player can only reference based on number of exposed tiles.
         
-        Decision-making is a four-level process.
+        Decision-making is a four-level process:
         1. Select discards that maximize number of remaining melds
         2. Select discards that maximize remaining tiles-waiting
         3. Select discards with least number of available nearby cards
-        4. Randomly select from discard candidates (equally good discard)
+        4. Randomly select from remaining candidates (equally good discard)
         """
-        freq = Counter(this.reference) - Counter(this.hand + this.open + this.discard)
+        exposed = this.hand + this.discard
+        for i in range(4):
+            exposed = exposed + this.players[i].open
+        freq = Counter(this.reference) - Counter(exposed)
+        #new Game Class Property, freq
 
         diskcand = this.hand.copy()
         diskcand = cls.decompose_meld(diskcand)
@@ -232,13 +289,14 @@ class Engine():
         Therefore, tiles-needed will only show 3(x3).
         """
         
-        need_count = {}
+        needcount = {}
         for testcard in set(hand):
+            cls.tilesneeded[testcard] = []
+
             testhand = hand.copy()
             testhand.remove(testcard)
             testfreq = Counter(testhand)
 
-            tile_needed = {}
             for card in set(testhand):
                 if isinstance(card.unit, str):
                     completing_seqn = {
@@ -265,12 +323,13 @@ class Engine():
                     if (Counter(pre_meld) - testfreq):
                         continue
                     for i in cmp_meld:
-                        tile_needed[i] = freq[i]
+                        if i not in cls.tilesneeded[testcard]:
+                            cls.tilesneeded[testcard] += [i] * freq[i]
 
-            need_count[testcard] = sum(tile_needed.values())
+            needcount[testcard] = len(cls.tilesneeded[testcard])
         
-        max_count = max(need_count.values())
-        return [x for x in hand if need_count[x] == max_count]
+        max_count = max(needcount.values())
+        return [x for x in hand if needcount[x] == max_count]
 
     @classmethod
     def decompose_meld(cls, hand):
@@ -291,29 +350,26 @@ class Engine():
         """
 
         pair, pong, chow = Group_Sets()
-        maxholder, numholder = 0, 0
-        nullcards = []
-
+        meldcount = {}
         for testcard in set(hand):
             testhand = hand.copy()
             testhand.remove(testcard)
             testfreq = Counter(testhand)
 
-            numholder = len(hand) // 3
-            while not numholder < maxholder:
-                for case in combinations(pong + chow, numholder):
+            numcount = len(hand) // 3
+            while not numcount < 0:
+                for case in combinations(pong + chow, numcount):
                     case = chain(*case)
                     if (Counter(case) - testfreq):
                         continue
 
-                    if maxholder < numholder:
-                        maxholder = numholder
-                        nullcards.clear()
-                    nullcards.append(testcard)
+                    meldcount[testcard] = numcount
+                    numcount = 0
                     break
-                numholder = numholder - 1
+                numcount = numcount - 1
 
-        return [x for x in hand if x in nullcards]
+        maxcount = max(meldcount.values())
+        return [x for x in hand if meldcount[x] == maxcount]
 
 def Group_Sets():
     freq = Counter(this.hand)
@@ -359,56 +415,51 @@ def Check_Win():
     
     return winning_case, class_of_win
 
-def Display(current_idx):
-    print("\033c", end = "")
-    print("Discard:", *this.discard, sep = " ")
-    print("- - - - - - - - - - - - - -")
-    for i in range(4):
-        this.current_player = i
-        label = ""
-        if current_idx == i: 
-            label = "- current"
-        print("Player {}".format(i + 1), label)
-        
-        print("Open:", *this.open, sep = " ")
-
-        label = ""
-        if current_idx >= i:
-            label = this.hand[-1]
-        print("Grab:", label)
-        
-        print(*TileSet.sorter(this.hand), sep = " ")
-        print("- - - - - - - - - - - - - -")
-    this.current_player = current_idx
-
 def main():
-    this.current_player = (this.current_player + 1) % 4
-    player_tag = this.current_player + 1
+    this.currentplayer = (this.currentplayer + 1) % 4
+    player_tag = this.currentplayer + 1
+
+    #if toss in need
 
     this.draw_tile()
-    Display(this.current_player)
+    this.display()
     
     if Check_Win()[0]:
         this.game_status = "P{} Won!".format(player_tag)
-        if this.mano != this.current_player:
+        if this.mano != this.currentplayer:
             this.mano = (this.mano + 1) % 4
         return
 
+    toss = Engine.compute_discard()
     if player_tag == 1:
         toss = input("Throw P{}: ".format(player_tag))
-    else:
-        toss = Engine.compute_discard()
-        print("Throw P{}: {}".format(player_tag, toss))
+        suit = toss[0]
+        unit = int(toss[1]) if toss[1].isdigit() else str(toss[1])
 
-    idx = this.hand.index(repr(toss))
-    this.discard.append(this.hand.pop(idx))
+        toss = Tile(suit, unit)
+    else:
+        print("Throw P{}: {}".format(player_tag, toss))
+        #if toss in pongs
+
+        for i in range(3, 0, -1):
+            print("{}..".format(i), end = "")
+            sleep(1)
+
+    #this.discard(toss)
+    this.hand.remove(toss)
+    this.discard.append(toss)
+    this.need = Engine.tilesneeded[toss]
+    Engine.tilesneeded.clear()
+
     """for idx, card in enumerate(this.hand):
-        if repr(card) == repr(toss):
+        if card == toss:
             this.discard.append(this.hand.pop(idx))
+            this.need = Engine.tilesneeded[card]
+            Engine.tilesneeded.clear()
             break
     else:
-        raise ValueError("Tile not in hand")"""
-
+        raise ValueError("Tile not in hand")
+    """
 if __name__ == "__main__":
     this = Game()
     while True:
