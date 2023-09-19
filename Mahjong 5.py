@@ -198,13 +198,13 @@ def Solo_Game():
 
         print("Suggested:", Suggest_Discard(hand, opened, discard))
 
-        toss = hand.index(input("Throw: "))
-        discard.append(hand.pop(toss))
+        #toss = hand.index(input("Throw: "))
+        #discard.append(hand.pop(toss))
         #add try-except for incorrect input
 
-        #toss = Suggest_Discard(hand, opened, discard)
-        #discard.append(toss)
-        #hand.remove(toss)
+        toss = Suggest_Discard(hand, opened, discard)
+        discard.append(toss)
+        hand.remove(toss)
     else:
         print("Draw!")
         #print(t_tiles)

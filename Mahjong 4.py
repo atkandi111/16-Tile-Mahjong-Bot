@@ -2,7 +2,7 @@
 #16-Tile Variant
 
 from collections import Counter
-from itertools import combinations
+from itertools import combinations, chain
 from random import shuffle, choice
 from time import time
 
@@ -13,9 +13,6 @@ class Player:
         self.hand = []
         self.open = []
         self.points = 0
-
-class Bot:
-    pass
 
 class Tile:
     def __init__(self, suit, unit):
@@ -60,33 +57,24 @@ class TileSet:
         return sorted(suit) + sorted(null)
 
 class Game:
-    def init_orig(self):
-        self.game_status = "Ongoing"
-        self.tile_wall = TileSet().reference
-        shuffle(self.tile_wall)
-        self.discard = []
-
-        self.players = []
-        self.mano = 0
-        for i in range(4):
-            self.current_player = i
-            self.players.append(Player())
-            self.hand = [self.draw_tile() for _ in range(16)]
-    
     def __init__(self):
         self.players = [Player() for _ in range(4)]
-        self.mano = 0 #itertools cycle for circular list
-        self.initialize_game()
+        self.reference = TileSet().reference
+        self.current_player = 0
+        self.mano = 0
 
     def initialize_game(self):
         self.game_status = "Ongoing"
-        self.tile_wall = TileSet().reference
+        self.tile_wall = self.reference.copy()
         shuffle(self.tile_wall)
 
         self.discard = []
         for i in range(4):
             self.current_player = i
-            self.hand = [self.draw_tile() for _ in range(16)]
+            self.hand.clear()
+            self.open.clear()
+            for _ in range(16):
+                self.draw_tile()
 
     @property
     def hand(self):
@@ -107,7 +95,7 @@ class Game:
     def draw_tile(self):
         card = self.tile_wall.pop(0)
 
-        while len(self.tile_wall) > 13:
+        while len(self.tile_wall) > 14:
             if card.__repr__() in ["fR", "fB"]:
                 self.open.append(card)
                 card = self.tile_wall.pop()
@@ -120,9 +108,11 @@ class Game:
                     self.hand.remove(card)
                 card = self.tile_wall.pop()
                 continue
-            
-            return card
-        self.game_status = "Draw"
+
+            self.hand.append(card)
+            break
+        else:
+            self.game_status = "Draw"
 
     """
     def draw_tile2(self):
@@ -175,6 +165,156 @@ class Game:
     def toss_tile(self, tile):
         pass
 
+class Engine():
+    @classmethod
+    def compute_discard(cls):
+        """DOCSTRING
+        freq represents the Player's knowledge base.
+        Player don't know tiles in tile_wall and opponents' hands.
+        Player can only reference based on number of exposed tiles.
+        
+        Decision-making is a four-level process.
+        1. Select discards that maximize number of remaining melds
+        2. Select discards that maximize remaining tiles-waiting
+        3. Select discards with least number of available nearby cards
+        4. Randomly select from discard candidates (equally good discard)
+        """
+        freq = Counter(this.reference) - Counter(this.hand + this.open + this.discard)
+
+        diskcand = this.hand.copy()
+        diskcand = cls.decompose_meld(diskcand)
+        diskcand = cls.tiles_needed(diskcand, freq)
+        diskcand = cls.near_cards(diskcand, freq)
+        return choice(diskcand)
+
+    @classmethod
+    def near_cards(cls, hand, freq):
+        near_count = {}
+        for card in set(hand):
+            if isinstance(card.unit, str):
+                seqn = [card]
+            else:
+                seqn = [
+                    Tile(card.suit, card.unit - 2),
+                    Tile(card.suit, card.unit - 1),
+                    Tile(card.suit, card.unit),
+                    Tile(card.suit, card.unit + 1),
+                    Tile(card.suit, card.unit + 2)
+                ]
+
+            near_count[card] = sum([freq[x] for x in seqn])
+        
+        min_count = min(near_count.values())
+        return [x for x in hand if near_count[x] == min_count]
+
+    @classmethod
+    def tiles_needed(cls, hand, freq):
+        """DOCSTRING
+        A hand can be divided into pre-melds
+        with corresponding number of tiles-needed.
+
+        This func takes the remaining cards in hand
+        and finds max number of tiles-needed
+        for each scenario that a card is discarded.
+
+        Ex. Hand: {1, 3, 4}
+        Discard 1: {2(x4), 5(x4)}
+        Discard 3: {}
+        Discard 4: {2(x4)}
+
+        Discarding 1 maximizes number of tiles the
+        hand could still be waiting for.
+
+        This func takes into account the availability
+        for each tiles-needed with respect to player's KB.
+
+        Ex. 3(x1) is in the discard pile.
+        Therefore, tiles-needed will only show 3(x3).
+        """
+        
+        need_count = {}
+        for testcard in set(hand):
+            testhand = hand.copy()
+            testhand.remove(testcard)
+            testfreq = Counter(testhand)
+
+            tile_needed = {}
+            for card in set(testhand):
+                if isinstance(card.unit, str):
+                    completing_seqn = {
+                        (card, card) : (card, )
+                    }
+                else:
+                    seqn = [
+                        Tile(card.suit, card.unit - 2),
+                        Tile(card.suit, card.unit - 1),
+                        Tile(card.suit, card.unit),
+                        Tile(card.suit, card.unit + 1),
+                        Tile(card.suit, card.unit + 2)
+                    ]
+
+                    completing_seqn = {
+                        (seqn[0], seqn[2]) : (seqn[1], ),
+                        (seqn[1], seqn[2]) : (seqn[0], seqn[3]),
+                        (seqn[2], seqn[2]) : (seqn[2], ),
+                        (seqn[2], seqn[3]) : (seqn[1], seqn[4]),
+                        (seqn[2], seqn[4]) : (seqn[3], )
+                    }
+
+                for pre_meld, cmp_meld in completing_seqn.items():
+                    if (Counter(pre_meld) - testfreq):
+                        continue
+                    for i in cmp_meld:
+                        tile_needed[i] = freq[i]
+
+            need_count[testcard] = sum(tile_needed.values())
+        
+        max_count = max(need_count.values())
+        return [x for x in hand if need_count[x] == max_count]
+
+    @classmethod
+    def decompose_meld(cls, hand):
+        """DOCSTRING
+        A hand can be divided into meld-holders.
+
+        This func finds max number of meld-holders
+        for each scenario that a card is discarded.
+
+        Ex. Hand: {1, 2, 3, 4}
+        Discard 1: {2, 3, 4}
+        Discard 2: {}
+        Discard 3: {}
+        Discard 4: {1, 2, 3}
+
+        Discarding 1 | 4 maximizes remaining melds.
+        Therefore, 1 | 4 are good discard candidates.
+        """
+
+        pair, pong, chow = Group_Sets()
+        maxholder, numholder = 0, 0
+        nullcards = []
+
+        for testcard in set(hand):
+            testhand = hand.copy()
+            testhand.remove(testcard)
+            testfreq = Counter(testhand)
+
+            numholder = len(hand) // 3
+            while not numholder < maxholder:
+                for case in combinations(pong + chow, numholder):
+                    case = chain(*case)
+                    if (Counter(case) - testfreq):
+                        continue
+
+                    if maxholder < numholder:
+                        maxholder = numholder
+                        nullcards.clear()
+                    nullcards.append(testcard)
+                    break
+                numholder = numholder - 1
+
+        return [x for x in hand if x in nullcards]
+
 def Group_Sets():
     freq = Counter(this.hand)
     pair = [[x] * 2 for x in freq if freq[x] > 1]
@@ -190,7 +330,7 @@ def Group_Sets():
             Tile(card.suit, card.unit + 2)
         ]
         
-        chow += [seqn] * min([freq[x] for x in seqn])
+        chow += [seqn] * min(freq[x] for x in seqn)
     return pair, pong, chow
 
 def Check_Win():
@@ -242,28 +382,39 @@ def Display(current_idx):
     this.current_player = current_idx
 
 def main():
-    for i in range(4):
-        this.current_player = i
-        this.hand.append(this.draw_tile())
+    this.current_player = (this.current_player + 1) % 4
+    player_tag = this.current_player + 1
 
-        Display(i)
-        
-        if Check_Win()[0]:
-            this.game_status = "Player {} Won!".format(i + 1)
-            return
+    this.draw_tile()
+    Display(this.current_player)
+    
+    if Check_Win()[0]:
+        this.game_status = "P{} Won!".format(player_tag)
+        if this.mano != this.current_player:
+            this.mano = (this.mano + 1) % 4
+        return
 
-        toss = input("Throw P{}: ".format(i + 1))
-        for idx, card in enumerate(this.hand):
-            if card.__repr__() == toss:
-                this.discard.append(this.hand.pop(idx))
-                break
-        else:
-            raise ValueError("Tile not in hand")
+    if player_tag == 1:
+        toss = input("Throw P{}: ".format(player_tag))
+    else:
+        toss = Engine.compute_discard()
+        print("Throw P{}: {}".format(player_tag, toss))
+
+    idx = this.hand.index(repr(toss))
+    this.discard.append(this.hand.pop(idx))
+    """for idx, card in enumerate(this.hand):
+        if repr(card) == repr(toss):
+            this.discard.append(this.hand.pop(idx))
+            break
+    else:
+        raise ValueError("Tile not in hand")"""
 
 if __name__ == "__main__":
     this = Game()
-    # while true, this.initialize_game()
-    while this.game_status == "Ongoing":
-        main()
-    print(this.game_status)
+    while True:
+        this.initialize_game()
+        while this.game_status == "Ongoing":
+            main()
+        print(this.game_status)
+        input("Continue? ")
 
