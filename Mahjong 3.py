@@ -100,15 +100,18 @@ def Decompose_Meld(hand, freq):
         testhand.remove(testcard)
         testfreq = Counter(testhand)
 
+        meldcount[testcard] = 0
         numcount = len(hand) // 3
-        while not numcount < 0:
+        while numcount > 0: # check if diff from >=
             for case in combinations(pong + chow, numcount):
                 case = chain(*case)
                 if (Counter(case) - testfreq):
                     continue
 
-                if numcount == len(hand) // 3:
-                    for eye in eye_pool
+                #consider eye if theres only one pair
+                #or if numcount == len(hand) // 3
+                """if numcount == len(hand) // 3:
+                    for eye in eye_pool"""
                 meldcount[testcard] = numcount
                 numcount = 0
                 break

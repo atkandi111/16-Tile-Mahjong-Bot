@@ -21,7 +21,7 @@ class Tile:
         self.unit = unit
 
     def __lt__(self, other):
-        return self.__str__() < other.__str__()
+        return self.__str__() <  other.__str__()
     
     def __eq__(self, other):
         return self.__str__() == other.__str__()
@@ -70,8 +70,10 @@ class Game:
         shuffle(self.tile_wall)
 
         self.discard = []
+        self.stealable = {}
         for i in range(4):
             self.currentplayer = i
+            self.stealable[i] = []
             self.hand.clear()
             self.open.clear()
             self.need.clear()
@@ -192,6 +194,8 @@ class Game:
             print("Grab:", label)
             
             print(*TileSet.sorter(self.hand), sep = " ")
+            print("Need:", *TileSet.sorter(set(self.need)), sep = " ")
+            #convert self.need to set
             print("- - - - - - - - - - - - - -")
         self.currentplayer = self._currentplayer
 
@@ -217,6 +221,8 @@ class Game:
 
 class Engine:
     tilesneeded = {}
+    #tilesneeded should not be from w2
+    #instead it should include all possible tilesneeded even from fullmelds
     #meldcount
 
     @classmethod
@@ -238,15 +244,30 @@ class Engine:
         freq = Counter(this.reference) - Counter(exposed)
         #new Game Class Property, freq
 
-        diskcand = this.hand.copy()
-        diskcand = cls.decompose_meld(diskcand)
-        diskcand = cls.tiles_needed(diskcand, freq)
-        diskcand = cls.near_cards(diskcand, freq)
-        return choice(diskcand)
+        candidates = this.hand.copy()
+        candidates = cls.decompose_meld(candidates)
+        candidates = cls.tiles_needed(candidates, freq)
+        candidates = cls.near_cards(candidates, freq)
+        return choice(candidates)
 
     @classmethod
     def near_cards(cls, hand, freq):
-        near_count = {}
+        """DOCSTRING
+        Isolated cards can still be ranked by usefulness
+        acc. to how many tiles near it can be drawn.
+
+        This func calculates how many near tiles
+        are available for the remaining tiles.
+
+        Ex: Hand: {1, 5, 8}
+        Near 1: {1(x3), 2(x4), 3(x4)}
+        Near 5: {3(x4), 4(x4), 5(x3), 6(x4), 7(x4),}
+        Near 8: {6(x4), 7(x4), 8(x3), 9(x4)}
+
+        Discarding 1 as it has the least near tiles.
+        1 has the least chance of becoming a meld.
+        """
+        nearcount = {}
         for card in set(hand):
             if isinstance(card.unit, str):
                 seqn = [card]
@@ -259,19 +280,19 @@ class Engine:
                     Tile(card.suit, card.unit + 2)
                 ]
 
-            near_count[card] = sum([freq[x] for x in seqn])
+            nearcount[card] = sum(freq[x] for x in seqn)
         
-        min_count = min(near_count.values())
-        return [x for x in hand if near_count[x] == min_count]
+        min_count = min(nearcount.values())
+        return [x for x in hand if nearcount[x] == min_count]
 
     @classmethod
     def tiles_needed(cls, hand, freq):
         """DOCSTRING
         A hand can be divided into pre-melds
-        with corresponding number of tiles-needed.
+        with corresponding number of needed tiles.
 
         This func takes the remaining cards in hand
-        and finds max number of tiles-needed
+        and finds max number of needed tiles
         for each scenario that a card is discarded.
 
         Ex. Hand: {1, 3, 4}
@@ -283,7 +304,7 @@ class Engine:
         hand could still be waiting for.
 
         This func takes into account the availability
-        for each tiles-needed with respect to player's KB.
+        of each tiles-needed with respect to player's KB.
 
         Ex. 3(x1) is in the discard pile.
         Therefore, tiles-needed will only show 3(x3).
@@ -448,7 +469,8 @@ def main():
     #this.discard(toss)
     this.hand.remove(toss)
     this.discard.append(toss)
-    this.need = Engine.tilesneeded[toss]
+    this.need = set(Engine.tilesneeded[toss])
+    #this.need = pong and findwaiting
     Engine.tilesneeded.clear()
 
     """for idx, card in enumerate(this.hand):
