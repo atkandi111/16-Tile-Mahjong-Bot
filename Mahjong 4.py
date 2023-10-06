@@ -12,7 +12,6 @@ class Player:
     def __init__(self):
         self.hand = []
         self.open = []
-        self.need = []
         self.points = 0
 
 class Tile:
@@ -21,10 +20,10 @@ class Tile:
         self.unit = unit
 
     def __lt__(self, other):
-        return self.__str__() <  other.__str__()
+        return (self.suit, self.unit) < (other.suit, other.unit)
     
     def __eq__(self, other):
-        return self.__str__() == other.__str__()
+        return (self.suit, self.unit) == (other.suit, other.unit)
 
     def __hash__(self):
         return hash((self.suit, self.unit))
@@ -61,7 +60,6 @@ class Game:
     def __init__(self):
         self.players = [Player() for _ in range(4)]
         self.reference = TileSet().reference
-        self.currentplayer = 0
         self.mano = 0
 
     def initialize_game(self):
@@ -70,15 +68,14 @@ class Game:
         shuffle(self.tile_wall)
 
         self.discard = []
-        self.stealable = {}
-        for i in range(4):
-            self.currentplayer = i
-            self.stealable[i] = []
+        self.currentplayer = self.mano
+        for _ in range(4):
             self.hand.clear()
             self.open.clear()
-            self.need.clear()
             for _ in range(16):
                 self.draw_tile()
+
+            self.currentplayer = (self.currentplayer + 1) % 4
 
     @property
     def hand(self):
@@ -88,10 +85,6 @@ class Game:
     def open(self):
         return self.players[self.currentplayer].open
     
-    @property
-    def need(self):
-        return self.players[self.currentplayer].need
-    
     @hand.setter
     def hand(self, value):
         self.players[self.currentplayer].hand = value
@@ -99,16 +92,12 @@ class Game:
     @open.setter
     def open(self, value):
         self.players[self.currentplayer].open = value
-
-    @need.setter
-    def need(self, value):
-        self.players[self.currentplayer].need = value
     
     def draw_tile(self):
         card = self.tile_wall.pop(0)
 
         while len(self.tile_wall) > 14:
-            if str(card) in ["fR", "fB"]:
+            if card.suit == "f":
                 self.open.append(card)
                 card = self.tile_wall.pop()
                 continue
@@ -125,6 +114,12 @@ class Game:
             break
         else:
             self.game_status = "Draw"
+
+    def chow_tile(self):
+        card = self.discard.pop()
+        self.open.append(card)
+        self.hand.append(card)
+        #add func for opening card
 
     """
     def draw_tile2(self):
@@ -194,8 +189,6 @@ class Game:
             print("Grab:", label)
             
             print(*TileSet.sorter(self.hand), sep = " ")
-            print("Need:", *TileSet.sorter(set(self.need)), sep = " ")
-            #convert self.need to set
             print("- - - - - - - - - - - - - -")
         self.currentplayer = self._currentplayer
 
@@ -220,7 +213,7 @@ class Game:
         """
 
 class Engine:
-    tilesneeded = {}
+    maxcount = 0
     #tilesneeded should not be from w2
     #instead it should include all possible tilesneeded even from fullmelds
     #meldcount
@@ -249,6 +242,10 @@ class Engine:
         candidates = cls.tiles_needed(candidates, freq)
         candidates = cls.near_cards(candidates, freq)
         return choice(candidates)
+    
+    @classmethod
+    def compute_chow(cls):
+        pass
 
     @classmethod
     def near_cards(cls, hand, freq):
@@ -310,9 +307,10 @@ class Engine:
         Therefore, tiles-needed will only show 3(x3).
         """
         
+        needtiles = {}
         needcount = {}
         for testcard in set(hand):
-            cls.tilesneeded[testcard] = []
+            needtiles[testcard] = []
 
             testhand = hand.copy()
             testhand.remove(testcard)
@@ -344,10 +342,10 @@ class Engine:
                     if (Counter(pre_meld) - testfreq):
                         continue
                     for i in cmp_meld:
-                        if i not in cls.tilesneeded[testcard]:
-                            cls.tilesneeded[testcard] += [i] * freq[i]
+                        if i not in needtiles[testcard]:
+                            needtiles[testcard] += [i] * freq[i]
 
-            needcount[testcard] = len(cls.tilesneeded[testcard])
+            needcount[testcard] = len(needtiles[testcard])
         
         max_count = max(needcount.values())
         return [x for x in hand if needcount[x] == max_count]
@@ -389,8 +387,8 @@ class Engine:
                     break
                 numcount = numcount - 1
 
-        maxcount = max(meldcount.values())
-        return [x for x in hand if meldcount[x] == maxcount]
+        cls.maxcount = max(meldcount.values())
+        return [x for x in hand if meldcount[x] == cls.maxcount]
 
 def Group_Sets():
     freq = Counter(this.hand)
@@ -437,51 +435,87 @@ def Check_Win():
     return winning_case, class_of_win
 
 def main():
-    this.currentplayer = (this.currentplayer + 1) % 4
     player_tag = this.currentplayer + 1
+    #player_tag is the glow in p1 p2 p3 p4
 
-    #if toss in need
+    if len(this.hand) % 3 == 1:
+        testmax, handmax = 0, 0
+        if this.discard:
+            testhand = this.hand + [this.discard[-1]]
+            Engine.decompose_meld(testhand)
+            testmax = Engine.maxcount
 
-    this.draw_tile()
-    this.display()
-    
-    if Check_Win()[0]:
-        this.game_status = "P{} Won!".format(player_tag)
-        if this.mano != this.currentplayer:
-            this.mano = (this.mano + 1) % 4
-        return
+            Engine.decompose_meld(this.hand)
+            handmax = Engine.maxcount
 
-    toss = Engine.compute_discard()
-    if player_tag == 1:
+        if testmax > handmax:
+            this.chow_tile()
+            input()
+        else:
+            this.draw_tile()
+        this.display()
+
+        if Check_Win()[0]:
+            this.game_status = "P{} Won!".format(player_tag)
+            if this.mano != this.currentplayer:
+                this.mano = (this.mano + 1) % 4
+            return
+
+    action = False
+    if player_tag == 10:
         toss = input("Throw P{}: ".format(player_tag))
-        suit = toss[0]
-        unit = int(toss[1]) if toss[1].isdigit() else str(toss[1])
+        suit, unit = toss[0], toss[1]
+        if unit.isdigit(): 
+            unit = int(unit)
 
         toss = Tile(suit, unit)
     else:
+        toss = Engine.compute_discard()
         print("Throw P{}: {}".format(player_tag, toss))
-        #if toss in pongs
 
-        for i in range(3, 0, -1):
+        """for i in range(3, 0, -1):
             print("{}..".format(i), end = "")
-            sleep(1)
+            sleep(1)"""
+        
+        """press = input("Action: ")
+        if press == "chow":
+            action = True
+        if press == "pass":
+            action = False"""
 
-    #this.discard(toss)
     this.hand.remove(toss)
-    this.discard.append(toss)
-    this.need = set(Engine.tilesneeded[toss])
-    #this.need = pong and findwaiting
-    Engine.tilesneeded.clear()
+    #this.discard(toss)
 
-    """for idx, card in enumerate(this.hand):
-        if card == toss:
-            this.discard.append(this.hand.pop(idx))
-            this.need = Engine.tilesneeded[card]
-            Engine.tilesneeded.clear()
-            break
-    else:
-        raise ValueError("Tile not in hand")
-    """
+    this._currentplayer = this.currentplayer
+    for i in range(1, 4):
+        this.currentplayer = (this._currentplayer + i) % 4
+        if this.currentplayer == 0:
+            if not action:
+                continue
+
+        this.hand.append(toss)
+        if Check_Win()[0]:
+            this.game_status = "P{} Won!".format(player_tag)
+            if this.mano != this.currentplayer:
+                this.mano = (this.mano + 1) % 4
+            return
+        this.hand.remove(toss)
+
+    for i in range(1, 4):
+        this.currentplayer = (this._currentplayer + i) % 4
+        if this.currentplayer == 0:
+            if not action:
+                continue
+
+        this.hand.append(toss)
+        """if Check_Pong():
+            return"""
+        this.hand.remove(toss)
+    this.currentplayer = this._currentplayer
+
+    this.discard.append(toss)
+    this.currentplayer = (this.currentplayer + 1) % 4
+
 if __name__ == "__main__":
     this = Game()
     while True:
